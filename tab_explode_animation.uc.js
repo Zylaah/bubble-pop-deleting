@@ -12,7 +12,10 @@
     const TAB_EXPLODE_ANIMATION_ID = 'tab-explode-animation-styles';
     const BUBBLE_COUNT = 25; // Number of bubbles
     const ANIMATION_DURATION = 600; // Milliseconds
-
+    
+    // Add a flag to prevent animations during startup
+    let browserFullyLoaded = false;
+    
     function injectStyles() {
         if (document.getElementById(TAB_EXPLODE_ANIMATION_ID)) {
             return;
@@ -62,9 +65,36 @@
     }
 
     function animateElementClose(element) {
-        if (!element || !element.isConnected) return;
+        // Check if browser is still starting up
+        if (!browserFullyLoaded) {
+            console.log("Tab Explode Animation: Animation prevented during browser startup.");
+            return;
+        }
+        
+        // --- BEGIN DEBUG LOG for animateElementClose ---
+        console.log("Tab Explode Animation: animateElementClose invoked. Element:", element);
+        if (element && typeof element.getBoundingClientRect === 'function') {
+            const rect = element.getBoundingClientRect();
+            console.log(`Tab Explode Animation: animateElementClose DEBUG: Element rect: L=${rect.left}, T=${rect.top}, W=${rect.width}, H=${rect.height}, R=${rect.right}, B=${rect.bottom}`);
+            console.log(`Tab Explode Animation: animateElementClose DEBUG: Element isConnected: ${element.isConnected}, id: ${element.id}, class: ${element.className}, localName: ${element.localName}`);
+        } else {
+            console.log("Tab Explode Animation: animateElementClose DEBUG: Element is null, undefined, or has no getBoundingClientRect method.");
+        }
+        // --- END DEBUG LOG for animateElementClose ---
+
+        if (!element || !element.isConnected) {
+            console.warn("Tab Explode Animation: animateElementClose: Element is null or not connected to the DOM. Aborting animation for:", element);
+            return;
+        }
 
         const elementRect = element.getBoundingClientRect(); // Viewport-relative
+        
+        // NEW CHECK for zero-size elements (often due to display:none or not yet rendered)
+        if (elementRect.width === 0 && elementRect.height === 0) {
+            console.warn(`Tab Explode Animation: animateElementClose: Element has zero width and height (L=${elementRect.left}, T=${elementRect.top}). This usually means it's hidden (e.g., display: none) or not yet rendered. Aborting animation to prevent top-left placement. Element:`, element);
+            return;
+        }
+
         const explosionContainer = document.createElement('div');
         explosionContainer.className = 'tab-explosion-container'; // Has position: absolute
 
@@ -78,10 +108,16 @@
         
         const parentRect = parentForAnimation.getBoundingClientRect();
 
-        // Calculate position of explosionContainer relative to parentForAnimation,
-        // such that it aligns with the element's viewport position.
-        explosionContainer.style.left = `${elementRect.left - parentRect.left}px`;
-        explosionContainer.style.top = `${elementRect.top - parentRect.top}px`;
+        // --- BEGIN DEBUG LOG for parent and positioning ---
+        console.log("Tab Explode Animation: animateElementClose DEBUG: Chosen parentForAnimation:", parentForAnimation);
+        console.log(`Tab Explode Animation: animateElementClose DEBUG: Parent rect: L=${parentRect.left}, T=${parentRect.top}, W=${parentRect.width}, H=${parentRect.height}`);
+        const finalLeft = elementRect.left - parentRect.left;
+        const finalTop = elementRect.top - parentRect.top;
+        console.log(`Tab Explode Animation: animateElementClose DEBUG: Explosion container calculated style: left=${finalLeft}px, top=${finalTop}px, width=${elementRect.width}px, height=${elementRect.height}px`);
+        // --- END DEBUG LOG for parent and positioning ---
+        
+        explosionContainer.style.left = `${finalLeft}px`;
+        explosionContainer.style.top = `${finalTop}px`;
         explosionContainer.style.width = `${elementRect.width}px`;
         explosionContainer.style.height = `${elementRect.height}px`;
         
@@ -164,23 +200,70 @@
 
     function onTabClose(event) {
         const tab = event.target;
-        // Ensure it's a normal tab and not something else
-        if (tab.localName === 'tab' && !tab.pinned && tab.isConnected) {
-            // Check if the tab is part of a group
-            const groupParent = tab.closest('tab-group');
-            if (!groupParent) {
-            console.log("Tab Explode Animation: TabClose event triggered for tab:", tab);
-                animateElementClose(tab);
+
+        // Log every TabClose event during startup
+        console.log(`Tab Explode Animation: TabClose event received at ${new Date().toISOString()}, browserFullyLoaded=${browserFullyLoaded}`);
+        
+        // --- BEGIN GENERAL DEBUG LOG for onTabClose ---
+        console.log("Tab Explode Animation: onTabClose event triggered. Event target:", tab);
+        if (tab) {
+            console.log(`Tab Explode Animation: onTabClose DEBUG: target.localName: ${tab.localName}, id: ${tab.id}, class: ${tab.className}, pinned: ${tab.pinned}, connected: ${tab.isConnected}`);
+            const glanceAttrValue = tab.getAttribute ? tab.getAttribute('zen-glance-tab') : 'N/A (no getAttribute)';
+            const hasGlanceAttr = tab.hasAttribute ? tab.hasAttribute('zen-glance-tab') : 'N/A (no hasAttribute)';
+            const hasGlanceIdAttr = tab.hasAttribute ? tab.hasAttribute('glance-id') : 'N/A (no hasAttribute)'; // New check
+            console.log(`Tab Explode Animation: onTabClose DEBUG: zen-glance-tab value: '${glanceAttrValue}', hasAttribute: ${hasGlanceAttr}, has glance-id: ${hasGlanceIdAttr}`);
+            
+            if (tab.hasAttribute && tab.hasAttribute('glance-id')) { // Main check for Glance-related tabs
+                console.log("Tab Explode Animation: onTabClose DEBUG: This is a Glance-related tab based on 'glance-id' attribute.");
+            } else if (tab.getAttribute && tab.getAttribute('zen-glance-tab') === 'true') {
+                console.log("Tab Explode Animation: onTabClose DEBUG: This is a Glance tab based on 'zen-glance-tab' attribute.");
+            } else {
+                console.log("Tab Explode Animation: onTabClose DEBUG: This is NOT identified as a Glance tab.");
             }
+        } else {
+            console.log("Tab Explode Animation: onTabClose DEBUG: event.target is null or undefined.");
+        }
+        // --- END GENERAL DEBUG LOG for onTabClose ---
+
+        // Ensure it's a normal tab and not something else
+        // and also not a Glance tab (checking for 'glance-id' or 'zen-glance-tab')
+        if (tab && tab.localName === 'tab' && 
+            !tab.pinned && 
+            tab.isConnected && 
+            (!tab.hasAttribute || (!tab.hasAttribute('glance-id') && tab.getAttribute('zen-glance-tab') !== 'true'))) { 
+            
+            console.log("Tab Explode Animation: TabClose event triggered for tab (ANIMATING based on conditions):", tab);
+            animateElementClose(tab);
+            
+        } else if (tab && tab.hasAttribute && (tab.hasAttribute('glance-id') || tab.getAttribute('zen-glance-tab') === 'true')) {
+            console.log("Tab Explode Animation: TabClose event for a Glance-related tab (SKIPPING animation):", tab);
+        } else {
+            console.log("Tab Explode Animation: TabClose event, conditions for animation NOT MET or it's an unidentified Glance tab. Target:", tab);
         }
     }
 
     function onTabGroupRemove(event) {
-        console.log("Tab Explode Animation: TabGroupRemove event received:", event);
         const group = event.target;
+
+        // Log every TabGroupRemove event during startup
+        console.log(`Tab Explode Animation: TabGroupRemove event received at ${new Date().toISOString()}, browserFullyLoaded=${browserFullyLoaded}`);
+        
+        // --- BEGIN GENERAL DEBUG LOG for onTabGroupRemove ---
+        console.log("Tab Explode Animation: onTabGroupRemove event received. Event:", event);
+        console.log("Tab Explode Animation: onTabGroupRemove event target:", group);
+        if (group) {
+            console.log(`Tab Explode Animation: onTabGroupRemove DEBUG: target.localName: ${group.localName}, id: ${group.id}, class: ${group.className}, connected: ${group.isConnected}`);
+        } else {
+            console.log("Tab Explode Animation: onTabGroupRemove DEBUG: event.target is null or undefined.");
+        }
+        // --- END GENERAL DEBUG LOG for onTabGroupRemove ---
+
+        console.log("Tab Explode Animation: TabGroupRemove event received (original log):", event); // Keeping original log for now
         if (group && group.localName === 'tab-group' && group.isConnected) {
-            console.log("Tab Explode Animation: TabGroupRemove event triggered for group:", group);
+            console.log("Tab Explode Animation: TabGroupRemove event triggered for group (ANIMATING):", group);
             animateElementClose(group);
+        } else {
+            console.log("Tab Explode Animation: TabGroupRemove event, conditions for animation NOT MET. Target:", group);
         }
     }
 
@@ -200,6 +283,12 @@
             document.addEventListener('TabGroupRemoved', onTabGroupRemove, false);
             
             console.log("Tab Explode Animation: Listeners attached to TabClose and TabGroup events.");
+            
+            // Set a delay before allowing animations to run
+            setTimeout(() => {
+                browserFullyLoaded = true;
+                console.log("Tab Explode Animation: Browser startup complete, animations enabled.");
+            }, 5000); // 5 second delay to ensure browser is fully loaded
         } else {
             // Retry if gBrowser is not ready
             console.log("Tab Explode Animation: gBrowser not ready, scheduling retry.");
