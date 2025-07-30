@@ -7,10 +7,10 @@
     "js": true,
     "readme": "https://raw.githubusercontent.com/Zylaah/bubble-pop-deleting/main/README.md",
     "author": "Zylaah",
-    "version": "1.0.0",
+    "version": "1.0",
     "tags": [
         "sine",
-        "Bubble aniamtion",
+        "Bubble animation",
         "Deleting tab",
         "fx-autoconfig",
         "JavaScript",
