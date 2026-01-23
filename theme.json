@@ -4,7 +4,13 @@
     "description": "Adds a bubble explosion animation when a tab or tab group is closed.",
     "homepage": "https://github.com/Zylaah/bubble-pop-deleting",
     "preferences": "https://raw.githubusercontent.com/Zylaah/bubble-pop-deleting/main/preferences.json",
-    "js": true,
+    "scripts":{
+        "tab_explode-animation.uc.js": {
+            "include": [
+                "chrome://browser/content/browser.xhtml"
+            ]
+        }
+    },
     "readme": "https://raw.githubusercontent.com/Zylaah/bubble-pop-deleting/main/README.md",
     "author": "Zylaah",
     "version": "1.0",
