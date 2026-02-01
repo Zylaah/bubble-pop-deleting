@@ -24,20 +24,20 @@
         const css = `
             .tab-explosion-container {
                 position: absolute;
-                pointer-events: none; /* Don't interfere with mouse events */
-                z-index: 99999; /* Above other tab elements */
+                pointer-events: none; 
+                z-index: 99999;
             }
 
             .bubble-particle {
                 position: absolute;
-                background-color: var(--zen-primary-color);
+                background-color: color-mix(in srgb, var(--zen-primary-color), #FFFFFF);
                 border-radius: 50%;
                 opacity: 0.8;
                 animation-name: bubbleExplode;
                 animation-duration: ${ANIMATION_DURATION}ms;
                 animation-timing-function: ease-out;
-                animation-fill-mode: forwards; /* Stay at the end state (invisible) */
-                will-change: transform, opacity; /* Hint for browser optimization */
+                animation-fill-mode: forwards; 
+                will-change: transform, opacity;
             }
 
             @keyframes bubbleExplode {
