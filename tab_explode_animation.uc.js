@@ -24,18 +24,13 @@
         const css = `
             .tab-explosion-container {
                 position: absolute;
-                top: 0; /* Will be set by JS */
-                left: 0; /* Will be set by JS */
-                width: 0; /* Will be set by JS */
-                height: 0; /* Will be set by JS */
                 pointer-events: none; /* Don't interfere with mouse events */
                 z-index: 99999; /* Above other tab elements */
             }
 
             .bubble-particle {
                 position: absolute;
-                /* background-color: var(--toolbarbutton-icon-fill-attention, dodgerblue); */ /* Use a theme-aware color or a fixed one */
-                background-color: light-dark( #cac2b6, #808080) !important;
+                background-color: var(--zen-primary-color);
                 border-radius: 50%;
                 opacity: 0.8;
                 animation-name: bubbleExplode;
