@@ -30,7 +30,7 @@
 
             .bubble-particle {
                 position: absolute;
-                background-color: color-mix(in srgb, var(--zen-primary-color), #878787);
+                background-color: color-mix(in srgb, var(--zen-primary-color), #e6e8e6);
                 border-radius: 50%;
                 opacity: 0.8;
                 animation-name: bubbleExplode;
