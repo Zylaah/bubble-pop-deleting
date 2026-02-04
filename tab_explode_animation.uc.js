@@ -10,7 +10,7 @@
     console.log("Tab Explode Animation: Script execution started.");
 
     const TAB_EXPLODE_ANIMATION_ID = 'tab-explode-animation-styles';
-    const BUBBLE_COUNT = 25; // Number of bubbles
+    const BUBBLE_COUNT = 10; // Number of bubbles
     const ANIMATION_DURATION = 600; // Milliseconds
     
     // Add a flag to prevent animations during startup
