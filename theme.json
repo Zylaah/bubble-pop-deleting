@@ -1,6 +1,6 @@
 {
     "id": "bubble-pop-deleting",
-    "name": "Tab-Bubble-explode",
+    "name": "Tab Closing Bubble Animation",
     "description": "Adds a bubble explosion animation when a tab or tab group is closed.",
     "scripts":{
         "tab_explode_animation.uc.js": {
@@ -22,6 +22,6 @@
         "Zylaah"
     ],
     "createdAt": "2025-05-08",
-    "updatedAt": "2025-07-30",
+    "updatedAt": "2026-02-06",
     "fork": ["zen"]
 }
