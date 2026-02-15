@@ -8,13 +8,33 @@
 
 (() => {
     const TAB_EXPLODE_ANIMATION_ID = 'tab-explode-animation-styles';
-    const BUBBLE_COUNT = 10;
-    const ANIMATION_DURATION = 600; // ms
-    const BUBBLE_SIZE_MIN = 4; // px
-    const BUBBLE_SIZE_RANGE = 4; // px (max = min + range)
+    const PREF_PREFIX = 'extension.bubble-pop-deleting.';
     const BUBBLE_EDGE_OFFSET = 5; // px, keeps bubbles visually on the element edge
-    const OUTWARD_BIAS = 10; // px, how far bubbles fly outward from their edge
     const MAX_STAGGER = 120; // ms, max animation delay stagger
+
+    // Defaults matching preferences.json — used as fallbacks
+    const DEFAULTS = {
+        bubbleCount: 10,
+        animationDuration: 600,
+        bubbleSizeMin: 4,
+        bubbleSizeRange: 4,
+        outwardBias: 10,
+    };
+
+    function getIntPref(key, fallback) {
+        try { return Services.prefs.getIntPref(PREF_PREFIX + key, fallback); }
+        catch { return fallback; }
+    }
+
+    function readConfig() {
+        return {
+            bubbleCount:       getIntPref('bubble-count',       DEFAULTS.bubbleCount),
+            animationDuration: getIntPref('animation-duration', DEFAULTS.animationDuration),
+            bubbleSizeMin:     getIntPref('bubble-size-min',    DEFAULTS.bubbleSizeMin),
+            bubbleSizeRange:   getIntPref('bubble-size-range',  DEFAULTS.bubbleSizeRange),
+            outwardBias:       getIntPref('outward-bias',       DEFAULTS.outwardBias),
+        };
+    }
 
     function injectStyles() {
         if (document.getElementById(TAB_EXPLODE_ANIMATION_ID)) return;
@@ -32,7 +52,7 @@
                 background-color: color-mix(in srgb, var(--zen-primary-color), #e6e8e6);
                 border-radius: 50%;
                 opacity: 0.8;
-                animation: bubbleExplode ${ANIMATION_DURATION}ms ease-out forwards;
+                animation: bubbleExplode var(--bubble-duration) ease-out forwards;
                 will-change: transform, opacity;
             }
             @keyframes bubbleExplode {
@@ -53,7 +73,7 @@
             || document.documentElement;
     }
 
-    function createBubble(edge, width, height) {
+    function createBubble(edge, width, height, config) {
         const bubble = document.createElement('div');
         bubble.className = 'bubble-particle';
 
@@ -66,7 +86,7 @@
             case 3: x = -BUBBLE_EDGE_OFFSET;    y = Math.random() * height;       break; // left
         }
 
-        const size = Math.random() * BUBBLE_SIZE_RANGE + BUBBLE_SIZE_MIN;
+        const size = Math.random() * config.bubbleSizeRange + config.bubbleSizeMin;
         bubble.style.left = `${x}px`;
         bubble.style.top = `${y}px`;
         bubble.style.width = bubble.style.height = `${size}px`;
@@ -78,10 +98,11 @@
         let ty = Math.sin(angle) * dist;
 
         // Bias outward from the originating edge
-        if (edge === 0) ty -= OUTWARD_BIAS;
-        if (edge === 1) tx += OUTWARD_BIAS;
-        if (edge === 2) ty += OUTWARD_BIAS;
-        if (edge === 3) tx -= OUTWARD_BIAS;
+        const bias = config.outwardBias;
+        if (edge === 0) ty -= bias;
+        if (edge === 1) tx += bias;
+        if (edge === 2) ty += bias;
+        if (edge === 3) tx -= bias;
 
         bubble.style.setProperty('--tx', `${tx}px`);
         bubble.style.setProperty('--ty', `${ty}px`);
@@ -97,6 +118,8 @@
         const rect = element.getBoundingClientRect();
         if (rect.width === 0 && rect.height === 0) return;
 
+        const config = readConfig();
+
         const parent = getAnimationParent();
         const parentRect = parent.getBoundingClientRect();
 
@@ -106,13 +129,14 @@
         container.style.top = `${rect.top - parentRect.top}px`;
         container.style.width = `${rect.width}px`;
         container.style.height = `${rect.height}px`;
+        container.style.setProperty('--bubble-duration', `${config.animationDuration}ms`);
 
         // Build all bubbles in a fragment to minimise reflows
         const fragment = document.createDocumentFragment();
-        for (let i = 0; i < BUBBLE_COUNT; i++) {
+        for (let i = 0; i < config.bubbleCount; i++) {
             // First 4 bubbles each get a guaranteed distinct edge; the rest are random
             const edge = i < 4 ? i : Math.floor(Math.random() * 4);
-            fragment.appendChild(createBubble(edge, rect.width, rect.height));
+            fragment.appendChild(createBubble(edge, rect.width, rect.height, config));
         }
         container.appendChild(fragment);
         parent.appendChild(container);
@@ -122,7 +146,7 @@
         element.style.transition = 'opacity 0.1s linear';
 
         // Clean up after all animations complete (duration + max stagger + small buffer)
-        setTimeout(() => container.remove(), ANIMATION_DURATION + MAX_STAGGER + 50);
+        setTimeout(() => container.remove(), config.animationDuration + MAX_STAGGER + 50);
     }
 
     function onTabClose(event) {
