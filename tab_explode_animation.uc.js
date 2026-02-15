@@ -113,6 +113,7 @@
     }
 
     function animateElementClose(element) {
+        if (!animationsEnabled) return;
         if (!element?.isConnected) return;
 
         const rect = element.getBoundingClientRect();
@@ -164,8 +165,17 @@
         animateElementClose(group);
     }
 
+    let animationsEnabled = false;
+
     function init() {
         injectStyles();
+
+        // Suppress animations until session restore is fully complete,
+        // preventing stray bubbles from tabs being reorganised at startup.
+        SessionStore.promiseAllWindowsRestored.then(() => {
+            // Small extra buffer for any residual tab shuffling after restore.
+            setTimeout(() => { animationsEnabled = true; }, 500);
+        });
 
         const tc = gBrowser.tabContainer;
         tc.addEventListener('TabClose', onTabClose);
