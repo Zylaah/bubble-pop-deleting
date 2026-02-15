@@ -10,14 +10,11 @@
     const TAB_EXPLODE_ANIMATION_ID = 'tab-explode-animation-styles';
     const BUBBLE_COUNT = 10;
     const ANIMATION_DURATION = 600; // ms
-    const STARTUP_DELAY = 5000; // ms before animations are enabled
     const BUBBLE_SIZE_MIN = 4; // px
     const BUBBLE_SIZE_RANGE = 4; // px (max = min + range)
     const BUBBLE_EDGE_OFFSET = 5; // px, keeps bubbles visually on the element edge
     const OUTWARD_BIAS = 10; // px, how far bubbles fly outward from their edge
     const MAX_STAGGER = 120; // ms, max animation delay stagger
-
-    let browserFullyLoaded = false;
 
     function injectStyles() {
         if (document.getElementById(TAB_EXPLODE_ANIMATION_ID)) return;
@@ -95,7 +92,6 @@
     }
 
     function animateElementClose(element) {
-        if (!browserFullyLoaded) return;
         if (!element?.isConnected) return;
 
         const rect = element.getBoundingClientRect();
@@ -146,21 +142,23 @@
 
     function init() {
         injectStyles();
-        if (typeof gBrowser === 'undefined' || !gBrowser.tabContainer) {
-            setTimeout(init, 1000);
-            return;
-        }
 
         const tc = gBrowser.tabContainer;
         tc.addEventListener('TabClose', onTabClose);
         tc.addEventListener('TabGroupRemoved', onTabGroupRemoved);
-
-        setTimeout(() => { browserFullyLoaded = true; }, STARTUP_DELAY);
     }
 
-    if (document.readyState === 'complete') {
+    // Wait for the browser UI to be fully ready (session restore complete,
+    // gBrowser available) using Firefox's dedicated observer notification.
+    if (gBrowserInit?.delayedStartupFinished) {
         init();
     } else {
-        window.addEventListener('load', init, { once: true });
+        const obs = (subject, topic) => {
+            if (topic === 'browser-delayed-startup-finished' && subject === window) {
+                Services.obs.removeObserver(obs, topic);
+                init();
+            }
+        };
+        Services.obs.addObserver(obs, 'browser-delayed-startup-finished');
     }
 })(); 
