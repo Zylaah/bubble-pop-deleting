@@ -2,35 +2,45 @@
   {
     "property": "extension.bubble-pop-deleting.bubble-count",
     "label": "Bubble Count",
-    "type": "number",
+    "type": "string",
+    "value": "number",
+    "placeholder": "10",
     "defaultValue": 10,
     "description": "Number of bubble particles spawned when a tab or group is closed."
   },
   {
     "property": "extension.bubble-pop-deleting.animation-duration",
     "label": "Animation Duration (ms)",
-    "type": "number",
+    "type": "string",
+    "value": "number",
+    "placeholder": "600",
     "defaultValue": 600,
     "description": "Duration of the bubble explosion animation in milliseconds."
   },
   {
     "property": "extension.bubble-pop-deleting.bubble-size-min",
     "label": "Minimum Bubble Size (px)",
-    "type": "number",
+    "type": "string",
+    "value": "number",
+    "placeholder": "4",
     "defaultValue": 4,
     "description": "Minimum diameter of a bubble particle in pixels."
   },
   {
     "property": "extension.bubble-pop-deleting.bubble-size-range",
     "label": "Bubble Size Range (px)",
-    "type": "number",
+    "type": "string",
+    "value": "number",
+    "placeholder": "4",
     "defaultValue": 4,
     "description": "Random size variation added to the minimum. Maximum bubble size = min + range."
   },
   {
     "property": "extension.bubble-pop-deleting.outward-bias",
     "label": "Outward Bias (px)",
-    "type": "number",
+    "type": "string",
+    "value": "number",
+    "placeholder": "10",
     "defaultValue": 10,
     "description": "How far bubbles fly outward from the edge of the closed element."
   }
