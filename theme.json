@@ -21,6 +21,7 @@
         "JavaScript",
         "Zylaah"
     ],
+    "preferences": "preferences.json",
     "createdAt": "2025-05-08",
     "updatedAt": "2026-02-06",
     "fork": ["zen"]
