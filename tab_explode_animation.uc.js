@@ -22,8 +22,18 @@
     };
 
     function getIntPref(key, fallback) {
-        try { return Services.prefs.getIntPref(PREF_PREFIX + key, fallback); }
-        catch { return fallback; }
+        const fullKey = PREF_PREFIX + key;
+        try {
+            const type = Services.prefs.getPrefType(fullKey);
+            if (type === Services.prefs.PREF_INT) {
+                return Services.prefs.getIntPref(fullKey, fallback);
+            }
+            if (type === Services.prefs.PREF_STRING) {
+                const val = parseInt(Services.prefs.getCharPref(fullKey), 10);
+                return Number.isNaN(val) ? fallback : val;
+            }
+        } catch (_) { /* pref missing or inaccessible */ }
+        return fallback;
     }
 
     function readConfig() {
@@ -154,6 +164,9 @@
         const tab = event.target;
         if (!tab || tab.localName !== 'tab' || tab.pinned || !tab.isConnected) return;
         if (isGlanceTab(tab)) return;
+        // Skip if tab is inside a group — TabGroupRemoved will animate the group instead.
+        // Otherwise we'd animate each tab when closing a group (e.g. 4 tabs × 15 = 60 bubbles).
+        if (tab.closest?.('tab-group, zen-folder')) return;
         animateElementClose(tab);
     }
 
