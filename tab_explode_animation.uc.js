@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Tab Explode Animation
-// @version        1.0
+// @version        1.1
 // @author         Bxthesda
 // @description    Adds a bubble explosion animation when a tab or tab group is closed.
 // @compatibility  Firefox 100+
