@@ -181,6 +181,12 @@
     let animationsEnabled = false;
 
     function init() {
+        // Prevent duplicate init when the script is loaded multiple times (e.g. theme
+        // reload, workspace switch). Each extra init would add duplicate listeners, so
+        // one TabClose would trigger N handlers and create N×bubbleCount bubbles.
+        if (window.__tabExplodeAnimationInit) return;
+        window.__tabExplodeAnimationInit = true;
+
         injectStyles();
 
         // Suppress animations until session restore is fully complete,
