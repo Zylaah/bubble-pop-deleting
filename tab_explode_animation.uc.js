@@ -175,7 +175,10 @@
 
     function onTabClose(event) {
         const tab = event.target;
-        if (!tab || tab.localName !== 'tab' || tab.pinned || !tab.isConnected) return;
+        if (!tab || tab.localName !== 'tab' || !tab.isConnected) return;
+        // Skip standalone pinned/essential tabs (small icons in the sidebar top area),
+        // but allow tabs inside zen-folders — they are pinned tabs taken over by the folder.
+        if (tab.pinned && !tab.closest('zen-folder')) return;
         if (isGlanceTab(tab)) return;
 
         const group = tab.group || tab.closest?.('tab-group, zen-folder');
