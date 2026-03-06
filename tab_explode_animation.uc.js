@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Tab Explode Animation
-// @version        1.1
+// @version        1.2
 // @author         Bxthesda
 // @description    Adds a bubble explosion animation when a tab or tab group is closed.
 // @compatibility  Firefox 100+
@@ -225,10 +225,9 @@
             setTimeout(() => { animationsEnabled = true; }, 500);
         });
 
-        // Listen on window so we catch TabClose for tabs inside zen-folders too
-        // (tabs in folders may not be DOM descendants of tabContainer).
-        window.addEventListener('TabClose', onTabClose, true);
-        gBrowser.tabContainer.addEventListener('TabGroupRemoved', onTabGroupRemoved);
+        const tc = gBrowser.tabContainer;
+        tc.addEventListener('TabClose', onTabClose);
+        tc.addEventListener('TabGroupRemoved', onTabGroupRemoved);
     }
 
     // Wait for the browser UI to be fully ready (session restore complete,
