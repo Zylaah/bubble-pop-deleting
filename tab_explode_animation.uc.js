@@ -122,11 +122,8 @@
         return bubble;
     }
 
-    function animateElementClose(element) {
+    function animateAtRect(rect, elementToHide = null) {
         if (!animationsEnabled) return;
-        if (!element?.isConnected) return;
-
-        const rect = element.getBoundingClientRect();
         if (rect.width === 0 && rect.height === 0) return;
 
         const config = readConfig();
@@ -142,22 +139,26 @@
         container.style.height = `${rect.height}px`;
         container.style.setProperty('--bubble-duration', `${config.animationDuration}ms`);
 
-        // Build all bubbles in a fragment to minimise reflows
         const fragment = document.createDocumentFragment();
         for (let i = 0; i < config.bubbleCount; i++) {
-            // First 4 bubbles each get a guaranteed distinct edge; the rest are random
             const edge = i < 4 ? i : Math.floor(Math.random() * 4);
             fragment.appendChild(createBubble(edge, rect.width, rect.height, config));
         }
         container.appendChild(fragment);
         parent.appendChild(container);
 
-        // Hide the original element immediately
-        element.style.opacity = '0';
-        element.style.transition = 'opacity 0.1s linear';
+        if (elementToHide?.isConnected) {
+            elementToHide.style.opacity = '0';
+            elementToHide.style.transition = 'opacity 0.1s linear';
+        }
 
-        // Clean up after all animations complete (duration + max stagger + small buffer)
         setTimeout(() => container.remove(), config.animationDuration + MAX_STAGGER + 50);
+    }
+
+    function animateElementClose(element) {
+        if (!element?.isConnected) return;
+        const rect = element.getBoundingClientRect();
+        animateAtRect(rect, element);
     }
 
     // When closing a folder/group, TabClose may fire for each tab before TabGroupRemoved.
@@ -179,11 +180,13 @@
 
         const group = tab.group || tab.closest?.('tab-group, zen-folder');
         if (group) {
-            // Tab is in a folder/group — defer animation in case the whole group is being closed
+            // Tab is in a folder/group — defer animation in case the whole group is being closed.
+            // Capture rect now (tab still in DOM); by the time the timeout fires, the tab may be gone.
+            const rect = tab.getBoundingClientRect();
             const id = setTimeout(() => {
                 const ids = pendingTabAnimations.get(group);
                 if (ids) { ids.delete(id); if (!ids.size) pendingTabAnimations.delete(group); }
-                if (tab.isConnected) animateElementClose(tab);
+                animateAtRect(rect);
             }, 30);
             if (!pendingTabAnimations.has(group)) pendingTabAnimations.set(group, new Set());
             pendingTabAnimations.get(group).add(id);
