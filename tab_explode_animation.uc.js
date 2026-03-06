@@ -160,14 +160,36 @@
         setTimeout(() => container.remove(), config.animationDuration + MAX_STAGGER + 50);
     }
 
+    // When closing a folder/group, TabClose may fire for each tab before TabGroupRemoved.
+    // We defer tab-in-folder animations briefly; if TabGroupRemoved arrives, we cancel them.
+    const pendingTabAnimations = new Map(); // group -> Set<timeoutId>
+
+    function cancelPendingAnimationsForGroup(group) {
+        const ids = pendingTabAnimations.get(group);
+        if (ids) {
+            for (const id of ids) clearTimeout(id);
+            pendingTabAnimations.delete(group);
+        }
+    }
+
     function onTabClose(event) {
         const tab = event.target;
         if (!tab || tab.localName !== 'tab' || tab.pinned || !tab.isConnected) return;
         if (isGlanceTab(tab)) return;
-        // Skip if tab is inside a group — TabGroupRemoved will animate the group instead.
-        // Otherwise we'd animate each tab when closing a group (e.g. 4 tabs × 15 = 60 bubbles).
-        if (tab.closest?.('tab-group, zen-folder')) return;
-        animateElementClose(tab);
+
+        const group = tab.group || tab.closest?.('tab-group, zen-folder');
+        if (group) {
+            // Tab is in a folder/group — defer animation in case the whole group is being closed
+            const id = setTimeout(() => {
+                const ids = pendingTabAnimations.get(group);
+                if (ids) { ids.delete(id); if (!ids.size) pendingTabAnimations.delete(group); }
+                if (tab.isConnected) animateElementClose(tab);
+            }, 30);
+            if (!pendingTabAnimations.has(group)) pendingTabAnimations.set(group, new Set());
+            pendingTabAnimations.get(group).add(id);
+        } else {
+            animateElementClose(tab);
+        }
     }
 
     function onTabGroupRemoved(event) {
@@ -175,6 +197,7 @@
         if (!group || !group.isConnected) return;
         // Zen Browser uses both <tab-group> and <zen-folder> for groups
         if (group.localName !== 'tab-group' && group.localName !== 'zen-folder') return;
+        cancelPendingAnimationsForGroup(group);
         animateElementClose(group);
     }
 
@@ -196,9 +219,10 @@
             setTimeout(() => { animationsEnabled = true; }, 500);
         });
 
-        const tc = gBrowser.tabContainer;
-        tc.addEventListener('TabClose', onTabClose);
-        tc.addEventListener('TabGroupRemoved', onTabGroupRemoved);
+        // Listen on window so we catch TabClose for tabs inside zen-folders too
+        // (tabs in folders may not be DOM descendants of tabContainer).
+        window.addEventListener('TabClose', onTabClose, true);
+        gBrowser.tabContainer.addEventListener('TabGroupRemoved', onTabGroupRemoved);
     }
 
     // Wait for the browser UI to be fully ready (session restore complete,
