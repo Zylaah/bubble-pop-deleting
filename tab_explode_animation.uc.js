@@ -61,6 +61,8 @@
                 position: absolute;
                 background-color: color-mix(in srgb, var(--zen-primary-color), #e6e8e6);
                 border-radius: 50%;
+                --zen-squircle-value: 1;
+                corner-shape: round !important;
                 opacity: 0.8;
                 animation: bubbleExplode var(--bubble-duration) ease-out forwards;
                 will-change: transform, opacity;
