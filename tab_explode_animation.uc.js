@@ -86,19 +86,37 @@
         return typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
     }
 
-    // Sine Library close controls vs native Library's cloned tab-close-button.
-    // Native copies live under .zen-library-space-tabs; the real strip does not.
+    function nativeLibraryHost() {
+        return document.querySelector('zen-library');
+    }
+
+    function isNativeLibraryOpen() {
+        const host = nativeLibraryHost();
+        return !!(host?.hasAttribute('open')
+            || document.getElementById('navigator-toolbox')?.hasAttribute('zen-library-open'));
+    }
+
+    // Native Library is light DOM and lives beside the toolbox, not in #browser.
+    // Copies of real tabs/groups use an "-copy" id suffix. Sine Library (shadow
+    // DOM, custom rows) is kept as a fallback.
     function libraryCloseKindFromEvent(event) {
         let sawNativeClose = false;
+        let inZenLibrary = false;
         let inNativeLibraryStrip = false;
         for (const node of eventPath(event)) {
-            if (!node?.classList) continue;
+            if (!node) continue;
+            if (node.localName === 'zen-library') inZenLibrary = true;
+            if (!node.classList) continue;
             if (node.classList.contains('library-workspace-cleanup-button')) return 'bulk';
             if (node.classList.contains('library-tab-close-button')) return 'single';
             if (node.classList.contains('tab-close-button')) sawNativeClose = true;
-            if (node.classList.contains('zen-library-space-tabs')) inNativeLibraryStrip = true;
+            if (node.classList.contains('zen-library-space-tabs')
+                || node.localName === 'zen-library-spaces-section'
+                || node.localName === 'zen-library-section-spaces') {
+                inNativeLibraryStrip = true;
+            }
         }
-        if (sawNativeClose && inNativeLibraryStrip) return 'single';
+        if (sawNativeClose && (inZenLibrary || inNativeLibraryStrip)) return 'single';
         return null;
     }
 
@@ -108,11 +126,17 @@
         let sineFolder = null;
         let nativeTab = null;
         let nativeGroup = null;
+        let inZenLibrary = false;
         let inNativeLibraryStrip = false;
         for (const node of path) {
             if (!node || node.nodeType !== Node.ELEMENT_NODE) continue;
+            if (node.localName === 'zen-library') inZenLibrary = true;
             const cl = node.classList;
-            if (cl?.contains('zen-library-space-tabs')) inNativeLibraryStrip = true;
+            if (cl?.contains('zen-library-space-tabs')
+                || node.localName === 'zen-library-spaces-section'
+                || node.localName === 'zen-library-section-spaces') {
+                inNativeLibraryStrip = true;
+            }
             if (cl?.contains('library-workspace-item') && !sineItem) sineItem = node;
             if (cl?.contains('library-workspace-folder') && !sineFolder) sineFolder = node;
             if (node.localName === 'tab' && !nativeTab) nativeTab = node;
@@ -120,13 +144,16 @@
                 nativeGroup = node;
             }
         }
-        if (inNativeLibraryStrip) return nativeTab || nativeGroup;
+        if (inZenLibrary || inNativeLibraryStrip) return nativeTab || nativeGroup;
         return sineItem || sineFolder;
     }
 
     function libraryRoots() {
         const roots = [];
+        const seen = new Set();
         for (const host of document.querySelectorAll('zen-library, #zen-library-container')) {
+            if (seen.has(host)) continue;
+            seen.add(host);
             if (host.shadowRoot) roots.push(host.shadowRoot);
             roots.push(host);
         }
@@ -138,9 +165,15 @@
 
         if (element.id) {
             const copyId = `${element.id}-copy`;
+            const nativeLib = nativeLibraryHost();
+            // Native Library uses light DOM (createRenderRoot returns the host).
+            if (nativeLib && isNativeLibraryOpen()) {
+                const copy = nativeLib.querySelector(`#${CSS.escape(copyId)}`);
+                if (copy) return copy;
+            }
             for (const root of libraryRoots()) {
                 const copy = root.querySelector?.(`#${CSS.escape(copyId)}`);
-                if (copy?.closest?.('.zen-library-space-tabs, zen-library-spaces-section')) return copy;
+                if (copy) return copy;
             }
         }
 
@@ -195,11 +228,15 @@
 
     function animateLibraryClose(lib) {
         if (lib.bulk) return;
-        if (lib.rect) animateAtRect(lib.rect, lib.hideEl);
+        if (lib.rect) animateAtRect(lib.rect, lib.hideEl, { coverWindow: true });
         skipNativeGroupUntil = performance.now() + LIBRARY_SKIP_GROUP_MS;
     }
 
-    function getAnimationParent() {
+    function getAnimationParent({ coverWindow = false } = {}) {
+        if (coverWindow) {
+            return document.getElementById('main-window')
+                || document.documentElement;
+        }
         return document.getElementById('browser')
             || document.getElementById('main-window')
             || document.documentElement;
@@ -244,13 +281,13 @@
         return bubble;
     }
 
-    function animateAtRect(rect, elementToHide = null) {
+    function animateAtRect(rect, elementToHide = null, { coverWindow = false } = {}) {
         if (!animationsEnabled) return;
         if (rect.width === 0 && rect.height === 0) return;
 
         const config = readConfig();
 
-        const parent = getAnimationParent();
+        const parent = getAnimationParent({ coverWindow });
         const parentRect = parent.getBoundingClientRect();
 
         const container = document.createElement('div');
@@ -301,18 +338,26 @@
         if (isGlanceTab(tab)) return;
 
         const lib = activeLibraryClose();
-        if (lib) {
-            // Closed from Library: never use the native strip rect, and never fade
-            // the real tab. Bulk clears skip entirely to avoid a spray of bursts.
-            if (!lib.bulk && !lib.rect) {
-                const snap = snapshotProxy(findLibraryProxy(tab));
+        const proxy = findLibraryProxy(tab);
+        // Prefer the visible Library copy whenever Spaces is showing this tab
+        // (click-origin or a live -copy). Never measure or fade the real strip.
+        if (lib || proxy) {
+            if (lib?.bulk) return;
+            if (lib && !lib.rect) {
+                const snap = snapshotProxy(proxy);
                 if (snap) {
                     lib.rect = snap.rect;
                     lib.hideEl = snap.hideEl;
                 }
             }
-            animateLibraryClose(lib);
-            if (!lib.bulk) libraryClose = null;
+            if (lib) {
+                animateLibraryClose(lib);
+                libraryClose = null;
+            } else {
+                const snap = snapshotProxy(proxy);
+                if (snap) animateAtRect(snap.rect, snap.hideEl, { coverWindow: true });
+                skipNativeGroupUntil = performance.now() + LIBRARY_SKIP_GROUP_MS;
+            }
             return;
         }
 
@@ -342,9 +387,12 @@
 
         const lib = activeLibraryClose();
         if (lib?.bulk || performance.now() < skipNativeGroupUntil) return;
-        if (lib) {
-            const snap = snapshotProxy(findLibraryProxy(group));
-            if (snap) animateAtRect(snap.rect, snap.hideEl);
+        const proxy = findLibraryProxy(group);
+        if (lib || proxy) {
+            const snap = lib?.rect
+                ? { rect: lib.rect, hideEl: lib.hideEl }
+                : snapshotProxy(proxy);
+            if (snap?.rect) animateAtRect(snap.rect, snap.hideEl, { coverWindow: true });
             libraryClose = null;
             return;
         }
@@ -373,8 +421,8 @@
         const tc = gBrowser.tabContainer;
         tc.addEventListener('TabClose', onTabClose);
         tc.addEventListener('TabGroupRemoved', onTabGroupRemoved);
-        // Capture, composed path: Library close runs removeTab in the same click,
-        // and Sine's close button lives in a shadow root.
+        // Capture + composed path: native Library is light DOM; Sine still
+        // closes from a shadow root.
         window.addEventListener('click', onLibraryPointer, true);
     }
 
